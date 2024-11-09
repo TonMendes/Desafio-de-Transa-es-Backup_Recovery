@@ -1,0 +1,124 @@
+PARTE 1 – TRANSAÇÕES
+Objetivo:
+Neste desafio, você irá lidar com transações para executar modificações na base de dados. Primeiramente, é necessário desabilitar o autocommit do MySQL para controlar quando as modificações de dados devem ser aplicadas.
+
+1.1 Desabilitar o Autocommit
+sql
+Copiar código
+-- Desabilita o autocommit para controlar explicitamente quando as transações serão confirmadas
+SET autocommit = 0;
+1.2 Transação Simples de Modificação de Dados (Sem Procedures)
+Abaixo, temos um exemplo de transação simples que faz a modificação de dados, onde são realizadas atualizações em uma tabela products e, em seguida, confirmadas ou revertidas com o COMMIT ou ROLLBACK.
+
+sql
+Copiar código
+-- Inicia a transação
+START TRANSACTION;
+
+-- Modificação na tabela products
+UPDATE products SET price = price * 1.10 WHERE category = 'electronics';
+
+-- Adiciona um novo produto
+INSERT INTO products (name, category, price) VALUES ('Smartwatch', 'electronics', 199.99);
+
+-- Confirma as alterações
+COMMIT;
+
+-- Caso ocorra um erro, você pode usar ROLLBACK para reverter as mudanças
+-- ROLLBACK;
+1.3 Ativar o Autocommit Novamente
+Após o fim da transação, reative o autocommit, se necessário:
+
+sql
+Copiar código
+-- Reativa o autocommit
+SET autocommit = 1;
+
+
+
+
+
+PARTE 2 – TRANSAÇÃO COM PROCEDURE
+Objetivo:
+Agora, criaremos uma transação dentro de uma procedure. Essa procedure conterá uma verificação de erro. Caso ocorra algum erro, a transação pode ser revertida, seja completamente (ROLLBACK), ou parcialmente, utilizando o conceito de SAVEPOINT.
+
+2.1 Criação da Procedure com Transação e Verificação de Erro
+Aqui, criamos uma procedure que realiza uma atualização na tabela employees e faz um rollback parcial em caso de erro:
+
+sql
+Copiar código
+DELIMITER $$
+
+CREATE PROCEDURE update_employee_salary(IN emp_id INT, IN new_salary DECIMAL(10, 2))
+BEGIN
+    -- Inicia a transação
+    START TRANSACTION;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        -- Se ocorrer algum erro, faz rollback total
+        ROLLBACK;
+    END;
+
+    -- Atualiza o salário de um empregado
+    UPDATE employees SET salary = new_salary WHERE employee_id = emp_id;
+
+    -- Verifica se a atualização foi bem-sucedida
+    IF ROW_COUNT() = 0 THEN
+        -- Caso nenhum registro tenha sido afetado, faz rollback
+        ROLLBACK;
+    ELSE
+        -- Caso contrário, faz commit
+        COMMIT;
+    END IF;
+
+END $$
+
+DELIMITER ;
+2.2 Execução da Procedure
+Agora, podemos chamar a procedure para atualizar o salário de um empregado, conforme o exemplo abaixo:
+
+sql
+Copiar código
+-- Chama a procedure para atualizar o salário de um empregado
+CALL update_employee_salary(101, 5000.00);
+Caso haja algum erro, a transação será revertida. Caso contrário, o salário será atualizado e a transação será confirmada.
+
+
+
+
+
+PARTE 3 – BACKUP E RECOVERY
+Objetivo:
+Nesta etapa, realizaremos o backup e o recovery do banco de dados utilizando o mysqldump. Este processo garantirá que você possa recuperar seu banco de dados, incluindo todos os dados, procedimentos, triggers e eventos, se necessário.
+
+3.1 Backup do Banco de Dados
+A ferramenta mysqldump é utilizada para gerar um backup completo do banco de dados. Aqui está um exemplo de como fazer o backup do banco de dados ecommerce:
+
+bash
+Copiar código
+-- Realiza o backup completo do banco de dados ecommerce
+mysqldump -u root -p ecommerce > ecommerce_backup.sql
+Esse comando irá criar o arquivo ecommerce_backup.sql que contém todas as instruções SQL necessárias para recriar o banco de dados e suas tabelas.
+
+3.2 Backup de Múltiplos Bancos de Dados
+Se você deseja fazer backup de múltiplos bancos de dados, o comando seria o seguinte:
+
+bash
+Copiar código
+-- Realiza o backup de múltiplos bancos de dados
+mysqldump -u root -p --databases ecommerce other_database > multiple_databases_backup.sql
+3.3 Backup com Procedures, Eventos e Outros
+Se você deseja garantir que procedures, eventos e outros objetos sejam incluídos no backup, use a opção --routines para incluir procedures e funções, e --events para incluir eventos programados:
+
+bash
+Copiar código
+-- Realiza o backup incluindo rotinas e eventos
+mysqldump -u root -p --routines --events ecommerce > ecommerce_backup_with_routines_and_events.sql
+3.4 Recuperação do Banco de Dados (Recovery)
+Para restaurar o banco de dados a partir do arquivo de backup, você deve usar o comando mysql:
+
+bash
+Copiar código
+-- Recupera o banco de dados ecommerce a partir do arquivo de backup
+mysql -u root -p ecommerce < ecommerce_backup.sql
